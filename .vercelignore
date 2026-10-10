@@ -1,4 +1,8 @@
 .git
+.env
+.env.*
+.openai
+.sites-runtime
 .github
 tests
 *.md
