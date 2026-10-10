@@ -1,0 +1,10 @@
+{
+  "name": "ward00",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:tara": "node tools/build-tara.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": { "three": "0.186.1", "esbuild": "0.28.2" }
+}

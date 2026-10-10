@@ -1,14 +1,31 @@
 import {INITIAL,ready,evaluatePlan,flow,safeLoad,demoState} from './model.mjs';
 import {Soundtrack} from './audio.js';
 import {City,startRain} from './city.js?v=4';
-import {Experience} from './experience.js?v=4';
+import {Experience} from './experience.js?v=6';
+import {TaraCharacter} from './tara-character.js';
+import {DialogueManager} from './dialogue-manager.js';
 const $=s=>document.querySelector(s), KEY='ward00-campaign-v1';
 let state;try{state=safeLoad(localStorage.getItem(KEY));}catch{state=INITIAL();}
-let settings={reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,untimed:false,volume:.32};try{settings={...settings,...JSON.parse(localStorage.getItem('ward00-settings')||'{}')};}catch{}
+let settings={reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,untimed:false,volume:.32,voiceVolume:1.0,voiceEngine:'bundled',voiceName:''};try{settings={...settings,...JSON.parse(localStorage.getItem('ward00-settings')||'{}')};}catch{}
 let demo=false,campaign=null,city=null,toastTimer=null,phase=false,seconds=45,paused=false,timer=null,inspect='',endingOpen=false;
 const music=new Soundtrack();music.volume=settings.volume;document.body.classList.toggle('reduced',settings.reduced);startRain($('#rain'));
 const experience=new Experience(music);
-let radioFrequency=88;
+let radioFrequency=88, dialoguePaused=false, campaignDialogue=null;
+const taraCharacter = new TaraCharacter({
+ onToggle: (collapsed) => {
+  const trig = $('#tara-floating-trigger');
+  if (trig) trig.classList.toggle('active', !collapsed);
+ }
+});
+const dialogueManager = new DialogueManager({
+ character: taraCharacter,
+ soundtrack: music,
+ settings: settings,
+ onTimerPause: (isPaused) => {
+  dialoguePaused = isPaused;
+  if ($('#countdown')) $('#countdown').textContent = settings.untimed?'UNTIMED':((isPaused||paused ? 'PAUSED / ' : '') + seconds + ' SEC');
+ }
+});
 const chapters=[{name:'The city that vanished',short:'Prologue',time:'04:17 AM',quote:'“Bring the old paper maps. We have to prove we’re here.”',who:'Tara Naik · engineering student'}, {name:'The missing ward',short:'The missing ward',time:'05:02 AM',quote:'“They didn’t lose us. They erased the label.”',who:'Rehan Qureshi · community cartographer'}, {name:'What the river was saying',short:'Listening to water',time:'06:11 AM',quote:'“That’s not just heavy rain. Something downstream is pushing it back.”',who:'Nilofer Shaikh · electrician & maker'}, {name:'Trust is infrastructure',short:'Trust & evacuation',time:'07:03 AM',quote:'“First, the people. We can argue about the map after everyone knows where to go.”',who:'Meera Naik · clinic worker'}, {name:'The missing layer',short:'The data audit',time:'07:48 AM',quote:'“Those people didn’t arrive yesterday. Our plan did.”',who:'Dr. Devika Sen · hydrologist'}, {name:'Seven gates. One city.',short:'The monsoon protocol',time:'08:26 AM',quote:'“Give us every community, every road, and every minute we’ve got.”',who:'Tara Naik · Aangan resident'}, {name:'A city made of names',short:'We are here',time:'11:52 AM',quote:'“People should be the base layer.”',who:'Nilofer Shaikh · Aangan resident'}];
 const icons={arrow:'<span aria-hidden="true">↗</span>',check:'<span aria-hidden="true">✓</span>',pin:'<span aria-hidden="true">⌖</span>'};
 function save(){if(!demo)try{localStorage.setItem(KEY,JSON.stringify(state));}catch{notify('Progress could not be saved on this browser. You can keep playing.');}}
@@ -18,10 +35,52 @@ function button(label,action,cls='primary',extra=''){return `<button class="${cl
 function pill(text){return `<span class="eyebrow"><i></i>${text}</span>`;}
 function focusScene(){const p=$('.play-column');if(p){p.setAttribute('tabindex','-1');p.focus({preventScroll:true});p.scrollIntoView({block:'start',behavior:'instant'});}}
 function clearScene(){city?.stop();city=null;clearInterval(timer);timer=null;}
-function navigate(n){clearScene();phase=false;state.chapter=n;state.maxChapter=Math.max(state.maxChapter,n);inspect='';endingOpen=false;save();render();window.scrollTo({top:0,behavior:'instant'});$('#main').focus({preventScroll:true});if(n>0)experience.enter(chapters[n]);}
-function render(){clearScene();document.body.dataset.chapter=state.chapter;$('#clock').textContent=chapters[state.chapter].time;music.setStage(state.chapter);$('#main').innerHTML=state.chapter===0?home():shell();if($('#city'))city=new City($('#city'),state,state.chapter);if(phase)startTimer();if(inspect==='tuning'&&$('#radio-dial'))updateRadio();updateAudio();experience.afterRender(state);}
+function navigate(n,voice=true){
+ clearScene();
+ dialogueManager.cancel();
+ phase=false;
+ state.chapter=n;
+ state.maxChapter=Math.max(state.maxChapter,n);
+ inspect='';
+ endingOpen=false;
+ save();
+ render();
+ window.scrollTo({top:0,behavior:'instant'});
+ $('#main').focus({preventScroll:true});
+ if(n>0){
+  experience.enter(chapters[n]);
+  const chKeys=['','ch1_start','ch2_start','ch3_start','ch4_start','ch5_start','ch6_start'];
+  if(voice&&chKeys[n])dialogueManager.play(chKeys[n]);
+ }
+}
+function render(){
+ clearScene();
+ document.body.dataset.chapter=state.chapter;
+ $('#clock').textContent=chapters[state.chapter].time;
+ music.setStage(state.chapter);
+ $('#main').innerHTML=state.chapter===0?home():shell();
+ if($('#city'))city=new City($('#city'),state,state.chapter);
+ if(state.chapter>0){
+  const slot=$('#tara-slot');
+  if(slot){
+   taraCharacter.mount(slot);
+   if(dialogueManager.currentLine){
+    dialogueManager.renderDialogueCard(dialogueManager.currentLine);
+   }
+  }
+  const trig=$('#tara-floating-trigger');
+  if(trig)trig.style.display='flex';
+ }else{
+  const trig=$('#tara-floating-trigger');
+  if(trig)trig.style.display='none';
+ }
+ if(phase)startTimer();
+ if(inspect==='tuning'&&$('#radio-dial'))updateRadio();
+ updateAudio();
+ experience.afterRender(state);
+}
 function home(){const resume=state.maxChapter>0;return `<section class="hero"><div class="hero-picture"></div><video class="weather-film" muted loop playsinline autoplay preload="metadata" poster="assets/rain-window.jpg" aria-hidden="true"><source src="assets/rain-window-720.mp4" type="video/mp4"></video><div class="hero-vignette"></div><div class="hero-coordinates">18° 39′ N &nbsp; 73° 47′ E<br><span>FICTIONAL CITY / REAL QUESTIONS</span></div><div class="hero-copy">${pill('AN INTERACTIVE STORY · PRAXIS 2026')}<div class="hero-kicker">THE CITY THAT VANISHED FROM THE MAP</div><h1>WARD <span>00<span class="title-cross">+</span></span></h1><div class="hero-subtitle"><span></span>THE MONSOON PROTOCOL</div><p class="hero-description">8,412 people. Missing from the map.<br>A storm that won’t wait to be corrected.</p><div class="hero-actions">${button(resume?'RESUME THE STORY &nbsp; →':'ENTER THE STORY &nbsp; →',resume?'resume':'begin')}${button('YOUR MISSION &nbsp; ↘','mission','text-button')}</div><div class="experience-note"><span>◌ &nbsp; 8–12 MIN EXPERIENCE</span><span>HEADPHONES RECOMMENDED</span></div></div><aside class="hero-console" aria-label="Emergency network overview"><div class="console-top"><span>VARUNA / LIVE ATLAS</span><b>● ONLINE</b></div><div class="radar-disc" aria-hidden="true"><i></i></div><div class="console-number"><strong>8,412</strong><span>RESIDENTS<br>OUTSIDE THE MODEL</span></div>${button('OPEN EMERGENCY BRIEFING ↗','begin','text-button')}</aside><div class="hero-alert"><span class="live-dot danger"></span><div>VARUNA EMERGENCY NETWORK<small>LOCATION NOT FOUND</small></div><span class="alert-code">E / 00</span></div><div class="hero-footer"><span>01 / A CITY IS MORE THAN ITS MAP</span><span>SCROLL TO DISCOVER ↓</span><span>SDG 11 · SUSTAINABLE CITIES</span></div></section><section class="mission-section" id="mission"><div>${pill('YOUR MISSION')}<h2>Make the invisible<br><em>impossible to ignore.</em></h2></div><div class="mission-description"><p>You are Tara Naik, a nineteen-year-old engineering student. The city’s flood-control system is sending water into a neighborhood it believes is empty.</p><p>It is your neighborhood. Your mother’s clinic. Your streets. Your home.</p><div class="mission-steps"><span><b>01</b> FIND THE PEOPLE</span><span><b>02</b> VERIFY THE EVIDENCE</span><span><b>03</b> CHANGE THE RESPONSE</span></div>${button('BEGIN AT 04:17 AM &nbsp; →','begin')}${button('EXPLORE PRESENTATION MODE','demo-menu','text-button')}</div></section><footer class="site-footer">An original Storyverse experience · WARD 00 <span>SDG 11 / 6 / 10 / 13</span>${button('Story & credits','credits','text-button')}</footer>`;}
-function shell(){const n=state.chapter,c=chapters[n];return `<div class="chapter-layout"><aside class="chapter-rail" aria-label="Story chapters">${chapters.map((ch,i)=>`<button class="rail-stop ${i===n?'active':''} ${i<n?'done':''}" data-action="chapter" data-n="${i}" aria-label="${String(i).padStart(2,'0')} ${ch.short}" ${i>state.maxChapter&&!demo?'disabled':''}><span>${String(i).padStart(2,'0')}</span><i></i></button>`).join('')}<span class="rail-label">THE MONSOON PROTOCOL</span></aside><div class="story-column">${pill(demo?'PRESENTATION MODE':`CHAPTER ${String(n).padStart(2,'0')} / 06`)}<h1>${c.name}</h1><div class="chapter-time">${c.time} <span>— NAYANTARA</span></div><p class="chapter-description">${descriptions[n]}</p><blockquote>${c.quote}<cite>${c.who}</cite></blockquote><div class="mission-objective"><span>YOUR OBJECTIVE</span><p>${objectives[n]}</p></div><div class="chapter-progress"><span>${progressLabel()}</span><div><i style="width:${progressPercent()}%"></i></div></div>${radioCard(n)}${demo?button('← RETURN TO YOUR STORY','exit-demo','text-button'):''}</div><section class="play-column" aria-label="Chapter interaction">${stage(n)}</section></div><footer class="play-footer"><div><span class="live-dot"></span><span>${demo?'PRESENTATION CHECKPOINT · CAMPAIGN PROGRESS UNCHANGED':'PROGRESS SAVED ON THIS DEVICE'}</span></div><div class="footer-actions">${button('FIELD JOURNAL','journal','text-button')}${n<6?button(n===5?'AFTER THE STORM &nbsp; →':'CONTINUE &nbsp; →','next','primary',ready(state)?'':'disabled'):button(endingOpen?'REVIEW YOUR DECISIONS':'SEE YOUR LEGACY &nbsp; →',endingOpen?'journal':'ending','primary',ready(state)?'':'disabled')}</div></footer>`;}
+function shell(){const n=state.chapter,c=chapters[n];return `<div class="chapter-layout"><aside class="chapter-rail" aria-label="Story chapters">${chapters.map((ch,i)=>`<button class="rail-stop ${i===n?'active':''} ${i<n?'done':''}" data-action="chapter" data-n="${i}" aria-label="${String(i).padStart(2,'0')} ${ch.short}" ${i>state.maxChapter&&!demo?'disabled':''}><span>${String(i).padStart(2,'0')}</span><i></i></button>`).join('')}<span class="rail-label">THE MONSOON PROTOCOL</span></aside><div class="story-column">${pill(demo?'PRESENTATION MODE':`CHAPTER ${String(n).padStart(2,'0')} / 06`)}<h1>${c.name}</h1><div class="chapter-time">${c.time} <span>— NAYANTARA</span></div><div id="tara-slot"></div><details class="field-notes"><summary>STORY & FIELD NOTES <span>＋</span></summary><p class="chapter-description">${descriptions[n]}</p><blockquote>${c.quote}<cite>${c.who}</cite></blockquote>${radioCard(n)}</details><div class="mission-objective"><span>YOUR OBJECTIVE</span><p>${objectives[n]}</p></div><div class="chapter-progress"><span>${progressLabel()}</span><div><i style="width:${progressPercent()}%"></i></div></div>${demo?button('← RETURN TO YOUR STORY','exit-demo','text-button'):''}</div><section class="play-column" aria-label="Chapter interaction">${stage(n)}</section></div><footer class="play-footer"><div><span class="live-dot"></span><span>${demo?'PRESENTATION CHECKPOINT · CAMPAIGN PROGRESS UNCHANGED':'PROGRESS SAVED ON THIS DEVICE'}</span></div><div class="footer-actions">${button('FIELD JOURNAL','journal','text-button')}${n<6?button(n===5?'AFTER THE STORM &nbsp; →':'CONTINUE &nbsp; →','next','primary',ready(state)?'':'disabled'):button(endingOpen?'REVIEW YOUR DECISIONS':'SEE YOUR LEGACY &nbsp; →',endingOpen?'journal':'ending','primary',ready(state)?'':'disabled')}</div></footer>`;}
 const descriptions={1:'The warning app says there is no risk. Outside, water is climbing the clinic steps. Overlay Rehan’s old survey with the official map and find what the system cannot see.',2:'Gate Seven is opening. Nilofer’s handmade gauges tell a different story from the official forecast. Follow the water and decide which explanation the evidence supports.',3:'A corrected map cannot carry a patient upstairs. Meera needs a shelter that is ready and a route people can actually use. Verify both before sending anyone out.',4:'Aangan did not disappear overnight. A property register became a population map, and “pending” became “empty.” Build an evidence chain that can withstand scrutiny.',5:'Closing one gate can move danger to someone else. Share the incoming surge across verified spaces, preserve the hospital route, and keep every community in the calculation.',6:'The rain has eased. Homes are damaged, the clinic has lost supplies, and recovery has only begun. Decide what the city carries forward before the next monsoon.'};
 const objectives={1:'Locate and verify three community landmarks in People’s View.',2:'Compare the readings and identify the cause of the rising water.',3:'Check three shelter conditions and confirm an accessible evacuation route.',4:'Examine three records and correct the model’s false assumption.',5:'Test a balanced plan. Confirm ground conditions when telemetry fails.',6:'Choose three long-term improvements. Then revisit the decisions that shaped your city.'};
 function radioCard(n){const lines=['','“I have the old survey. Scan the community layer; the landmarks are still here.”','“My gauge is cross-checked. Look at the direction of the drain, too.”','“A shelter is only useful if everyone can reach it.”','“Follow each record. We need to know where unknown became empty.”','“Stay on the radio. A model cannot see everything happening on the ground.”','“Let the people who live here help decide what comes next.”'];return `<div class="radio-card"><span>FIELD RADIO / ${chapters[n].who.split(' · ')[0].toUpperCase()}</span><div class="radio-wave" aria-hidden="true">${Array.from({length:12},(_,i)=>`<i style="--i:${i}"></i>`).join('')}</div><p>${lines[n]}</p></div>`;}
@@ -46,17 +105,44 @@ function rebuildStage(){if(endingOpen)return ending();return `<div class="stage-
 function ending(){return `<div class="ending"><span class="micro">ONE YEAR LATER / YOUR CITY’S LEGACY</span><h2>The map that<br><em>learned to listen.</em></h2><p>${state.outcome==='held'?'Your verified evidence helped the city hold a safer plan.':'Your first response returned to the old model. The review makes that failure visible, so the city can learn from it.'} Recovery took months. Flooded homes, damaged supplies, injuries, and unsafe water were not erased by a corrected map.</p><div class="legacy-priorities">${state.rebuild.map(id=>`<span>✓ ${improvements.find(i=>i[0]===id)?.[1]||''}</span>`).join('')}</div><blockquote>“A city is not smart because it can predict the water. It is smart because it refuses to forget the people.”</blockquote><div class="sdg-strip"><span><b>11</b>SUSTAINABLE<br>CITIES</span><span><b>6</b>CLEAN<br>WATER</span><span><b>10</b>REDUCED<br>INEQUALITIES</span><span><b>13</b>CLIMATE<br>ACTION</span></div><div class="ending-actions">${button('REVIEW YOUR DECISIONS','journal')}${button('RETURN TO THE BEGINNING','home','text-button')}${button('STORY & CREDITS','credits','text-button')}</div></div>`;}
 function modal(title,content,cls=''){const d=$('#modal');d.className=cls;d.innerHTML=`<div class="modal-heading"><h2 id="modal-title">${title}</h2>${button('×','close','close-button','aria-label="Close dialog"')}</div>${content}`;if(!d.open)d.showModal();}
 function chapterMenu(presentation=false){modal(presentation?'Presentation checkpoints':'Your journey',`<p class="modal-intro">${presentation?'Jump into a prepared scene for your live presentation. Your story progress stays separate.':'Revisit unlocked chapters, or explore prepared presentation checkpoints.'}</p><div class="chapter-list">${chapters.map((c,i)=>`<button data-action="${presentation?'demo-chapter':'chapter'}" data-n="${i}" ${!presentation&&i>state.maxChapter?'disabled':''}><span>${String(i).padStart(2,'0')}</span><b>${c.short}</b><small>${c.time}</small><i>${!presentation&&i>state.maxChapter?'LOCKED':'↗'}</i></button>`).join('')}</div>${!presentation?button('OPEN PRESENTATION MODE','demo-menu','text-button'):''}`);}
-function settingsModal(){modal('Make yourself comfortable',`<p class="modal-intro">Designed to be experienced at your own pace.</p><label class="setting-row"><span><b>Reduced motion</b><small>Keep the map still and remove rain animation.</small></span><input id="reduced" type="checkbox" ${settings.reduced?'checked':''}></label><label class="setting-row"><span><b>Untimed decisions</b><small>Remove the countdown from the sensor failure scene.</small></span><input id="untimed" type="checkbox" ${settings.untimed?'checked':''}></label><label class="setting-row"><span><b>Music volume</b><small>Original procedural score and rain ambience.</small></span><input id="volume" type="range" min="0" max="0.8" step="0.05" value="${settings.volume}" aria-label="Music volume"></label><div class="settings-bottom">${button('START A NEW STORY','reset-confirm','text-button')}${button('REPLAY BOOT','replay-boot','text-button')}${button('SAVE & CLOSE','save-settings')}</div>`);}
+function settingsModal(){
+ const engine=settings.voiceEngine||'bundled';
+ const vList=dialogueManager.voices||[];
+ modal('Make yourself comfortable',`<p class="modal-intro">Designed to be experienced at your own pace.</p>
+  <label class="setting-row"><span><b>Reduced motion</b><small>Keep the map still, remove rain, and freeze character bobbing.</small></span><input id="reduced" type="checkbox" ${settings.reduced?'checked':''}></label>
+  <label class="setting-row"><span><b>Untimed decisions</b><small>Remove the countdown from the sensor failure scene.</small></span><input id="untimed" type="checkbox" ${settings.untimed?'checked':''}></label>
+  <label class="setting-row"><span><b>Music volume</b><small>Original procedural score and rain ambience.</small></span><input id="volume" type="range" min="0" max="0.8" step="0.05" value="${settings.volume}" aria-label="Music volume"></label>
+  <label class="setting-row"><span><b>Tara voice volume</b><small>Character dialogue and speech playback level.</small></span><input id="voice-volume" type="range" min="0" max="1" step="0.05" value="${settings.voiceVolume??1.0}" aria-label="Tara voice volume"></label>
+  <label class="setting-row"><span><b>Voice engine</b><small>Choose the story voice or a voice from your device.</small></span>
+    <select id="voice-engine" class="voice-engine-select">
+      <option value="bundled" ${engine==='bundled'?'selected':''}>Story voice (recommended)</option>
+      <option value="speechSynthesis" ${engine==='speechSynthesis'?'selected':''}>Browser Speech Synthesis</option>
+    </select>
+  </label>
+  ${engine==='speechSynthesis'&&vList.length?`
+    <label class="setting-row"><span><b>Browser voice</b><small>Choose from available system voices.</small></span>
+      <select id="voice-name" class="voice-select">
+        ${vList.map(v=>`<option value="${v.name}" ${(dialogueManager.selectedVoice?.name===v.name||settings.voiceName===v.name)?'selected':''}>${v.name} (${v.lang})</option>`).join('')}
+      </select>
+    </label>
+  `:''}
+  <div class="settings-bottom">
+    ${button('TEST TARA VOICE','test-voice','text-button')}
+    ${button('START A NEW STORY','reset-confirm','text-button')}
+    ${button('REPLAY BOOT','replay-boot','text-button')}
+    ${button('SAVE & CLOSE','save-settings')}
+  </div>`);
+}
 function journal(){const chosen=state.events.length?state.events:['The city’s emergency network reports: LOCATION NOT FOUND.'];modal('Your field journal',`<p class="modal-intro">The decisions and discoveries that changed the picture.</p><ol class="journal-list">${chosen.map(s=>`<li>${s}</li>`).join('')}</ol><div class="journal-reflection"><span class="micro">THE QUESTION TO TAKE WITH YOU</span><h3>Who is missing from the data behind the systems we trust?</h3></div>${button('BACK TO THE CITY','close')}`);}
 function updateAudio(){$('#sound').setAttribute('aria-pressed',String(music.on));$('#sound').setAttribute('aria-label',music.on?'Mute sound':'Enable sound');$('#sound-label').textContent=music.on?'SOUND ON':'SOUND OFF';document.body.classList.toggle('sound-on',music.on);}
 function updateGate(){document.querySelectorAll('[data-valve]').forEach(e=>e.style.setProperty('--level',e.value+'%'));const f=flow(state.gates),p=evaluatePlan(state);for(let i=0;i<3;i++)$('#value-'+i).textContent=state.gates[i]+'%';$('#spill-value').textContent=f.spill+'%';$('#spill-value').classList.toggle('warning-text',f.spill<0||f.spill>30);$('#east-label').textContent=f.east+'%';$('#basin-label').textContent=f.b1+'%';$('#plan-status').textContent=p.message;$('#plan-status').classList.toggle('safe',p.safe);if(city?.reduced)city.draw();save();}
-function startTimer(){clearInterval(timer);if(settings.untimed)return;timer=setInterval(()=>{if(paused||document.hidden||$('#modal').open)return;seconds--;if($('#countdown'))$('#countdown').textContent=seconds+' SEC';if(seconds<=0){state.outcome='timeout';phase=false;event('Telemetry was lost. The response window expired and the original diversion resumed.');render();focusScene();notify('The response window expired. You can replay this decision.',false);}},1000);}
+function startTimer(){clearInterval(timer);if(settings.untimed)return;timer=setInterval(()=>{if(paused||dialoguePaused||document.hidden||$('#modal').open)return;seconds--;if($('#countdown'))$('#countdown').textContent=seconds+' SEC';if(seconds<=0){state.outcome='timeout';phase=false;event('Telemetry was lost. The response window expired and the original diversion resumed.');render();focusScene();notify('The response window expired. You can replay this decision.',false);}},1000);}
 async function action(a,id,n){switch(a){
- case 'begin':if(state.maxChapter>0){modal('Begin a new story?',`<p class="modal-intro">You have saved progress. Continue it, or start the experience again.</p>${button('RESUME SAVED STORY','resume')}${button('START AGAIN','reset','text-button')}`);break;}modal('04:17 AM · Aangan',`<div class="intro-phone"><span>VARUNA / EMERGENCY NETWORK</span><b>LOCATION<br>NOT FOUND</b><small>NO ACTIVE RISK AT YOUR LOCATION</small></div><p class="modal-intro">Outside Tara’s home, water is already climbing the clinic steps. Her neighborhood exists. The map says otherwise.</p><blockquote>“Bring the old paper maps. We have to prove we’re here.”</blockquote><div class="intro-options">${button('ENTER WITH SOUND &nbsp; →','start-sound')}${button('ENTER QUIETLY','start-muted','text-button')}</div>`,'intro-modal');break;
- case 'start-sound':if(!music.on)await music.start();$('#modal').close();navigate(1);break;
- case 'start-muted':$('#modal').close();navigate(1);break;
+ case 'begin':if(state.maxChapter>0){modal('Begin a new story?',`<p class="modal-intro">You have saved progress. Continue it, or start the experience again.</p>${button('RESUME SAVED STORY','resume')}${button('START AGAIN','reset','text-button')}`);break;}modal('04:17 AM · Aangan',`<div class="intro-tara-preview"><picture><img src="assets/tara/tara-3d-portrait.png" alt="Tara Naik" class="intro-tara-img"></picture><div class="intro-tara-quote"><span class="micro">TARA NAIK · 19-YEAR-OLD ENGINEERING STUDENT</span><blockquote>“I’m Tara. That neighborhood by the river is my home. The city’s map says nobody lives there.”</blockquote></div></div><div class="intro-phone"><span>VARUNA / EMERGENCY NETWORK</span><b>LOCATION<br>NOT FOUND</b><small>NO ACTIVE RISK AT YOUR LOCATION</small></div><p class="modal-intro">Outside Tara’s home, water is already climbing the clinic steps. Her neighborhood exists. The map says otherwise.</p><div class="intro-options">${button('ENTER WITH SOUND &nbsp; →','start-sound')}${button('ENTER QUIETLY','start-muted','text-button')}</div>`,'intro-modal');break;
+ case 'start-sound':if(!music.on)await music.start();$('#modal').close();navigate(1,false);dialogueManager.play('intro',{force:true});break;
+ case 'start-muted':if(music.on)music.off();dialogueManager.silence();$('#modal').close();navigate(1,false);dialogueManager.play('intro',{force:true});break;
  case 'resume':$('#modal').close();navigate(Math.max(1,state.maxChapter));break;
- case 'home':if(demo){state=campaign||INITIAL();demo=false;campaign=null;}$('#modal').close();navigate(0);break;
+ case 'home':dialogueManager.cancel();if(demo){state=campaign||INITIAL();demo=false;campaign=null;}$('#modal').close();navigate(0);break;
  case 'mission':$('#mission')?.scrollIntoView({behavior:settings.reduced?'instant':'smooth'});break;
  case 'next':if(ready(state))navigate(state.chapter+1);break;
  case 'settings':settingsModal();break;
@@ -64,46 +150,69 @@ async function action(a,id,n){switch(a){
  case 'chapters':chapterMenu();break;
  case 'chapter':if(n<=state.maxChapter||demo){$('#modal').close();navigate(n);}break;
  case 'demo-menu':chapterMenu(true);break;
- case 'demo-chapter':if(!demo)campaign=structuredClone(state);demo=true;state=demoState(n);if(n===0)state.maxChapter=0;$('#modal').close();navigate(n);notify('Presentation checkpoint. Your saved story is unchanged.');break;
- case 'exit-demo':state=campaign||INITIAL();demo=false;campaign=null;navigate(state.chapter);break;
- case 'save-settings':settings.reduced=$('#reduced').checked;settings.untimed=$('#untimed').checked;settings.volume=Number($('#volume').value);music.setVolume(settings.volume);try{localStorage.setItem('ward00-settings',JSON.stringify(settings));}catch{}document.body.classList.toggle('reduced',settings.reduced);$('#modal').close();render();break;
+ case 'demo-chapter':if(!demo){campaign=structuredClone(state);campaignDialogue=new Set(dialogueManager.playedIds);}dialogueManager.playedIds.clear();demo=true;state=demoState(n);if(n===0)state.maxChapter=0;$('#modal').close();navigate(n);notify('Presentation checkpoint. Your saved story is unchanged.');break;
+ case 'exit-demo':dialogueManager.cancel();dialogueManager.playedIds=campaignDialogue||new Set();campaignDialogue=null;state=campaign||INITIAL();demo=false;campaign=null;navigate(state.chapter);break;
+ case 'toggle-tara':taraCharacter.toggleCollapse();break;
+ case 'test-voice':dialogueManager.play('intro',{force:true,isReplay:true});break;
+ case 'save-settings':{
+  settings.reduced=$('#reduced').checked;
+  settings.untimed=$('#untimed').checked;
+  settings.volume=Number($('#volume').value);
+  settings.voiceVolume=Number($('#voice-volume').value);
+  const engSel=$('#voice-engine');
+  if(engSel)settings.voiceEngine=engSel.value;
+  const vSel=$('#voice-name');
+  if(vSel){
+   settings.voiceName=vSel.value;
+   const found=dialogueManager.voices.find(v=>v.name===vSel.value);
+   if(found)dialogueManager.selectedVoice=found;
+  }
+  music.setVolume(settings.volume);
+  dialogueManager.setVoiceVolume(settings.voiceVolume);
+  dialogueManager.setVoiceEngine(settings.voiceEngine);
+  try{localStorage.setItem('ward00-settings',JSON.stringify(settings));}catch{}
+  document.body.classList.toggle('reduced',settings.reduced);
+  $('#modal').close();
+  render();
+  break;
+ }
  case 'reset-confirm':modal('Start a new story?',`<p class="modal-intro">This replaces the progress saved on this device. Your settings stay the same.</p>${button('START A NEW STORY','reset')}${button('KEEP MY PROGRESS','close','text-button')}`);break;
- case 'reset':state=INITIAL();demo=false;campaign=null;$('#modal').close();navigate(0);break;
+ case 'reset':campaignDialogue=null;dialogueManager.cancel();dialogueManager.playedIds.clear();state=INITIAL();demo=false;campaign=null;$('#modal').close();navigate(0);break;
  case 'scan-map':state.peopleView=true;save();render();experience.scan();notify('Community survey located. Inspect the three illuminated landmarks.');break;
  case 'system':state.peopleView=false;save();render();break;
  case 'people':state.peopleView=true;save();render();experience.scan();notify('Aangan comes into view. Select its three landmarks.');break;
- case 'landmark':{const l=landmarks[id];if(!l)break;modal(l.name,`<span class="micro">COMMUNITY EVIDENCE / WARD 17-E</span><div class="dossier-icon">${l.symbol}</div><p class="modal-intro">${l.detail}</p><div class="source-line">${l.source}</div>${button(state.landmarks.includes(id)?'ALREADY VERIFIED ✓':'VERIFY & ADD TO THE MAP','verify-landmark','primary',`data-id="${id}"`)}`);break;}
- case 'verify-landmark':if(!state.landmarks.includes(id)){state.landmarks.push(id);event(`${landmarks[id].name} verified: a real place restored to the map.`);}$('#modal').close();render();notify(state.landmarks.length===3?'Three landmarks verified. The community layer is taking shape.':'Community evidence added.');break;
- case 'sensor-correct':state.sensor=true;event('Independent observations confirmed drain backflow linked to Gate Seven.');render();notify('Backflow confirmed. Evidence matters more than a reassuring forecast.');break;
- case 'sensor-wrong':notify('The gauge is independently cross-checked, and the drain flow is visibly reversed. Compare both observations.',false);break;
- case 'check':{const c=checks[id];modal(c[0],`<span class="micro">CALL CONNECTED / QUARRY SCHOOL CARETAKER</span><p class="modal-intro">${c[1]}</p><div class="source-line">SOURCE: CARETAKER + COMMUNITY RESPONSE TEAM</div>${button(state.checks.includes(id)?'CONDITION CONFIRMED ✓':'LOG VERIFIED CONDITION','verify-check','primary',`data-id="${id}"`)}`);break;}
+ case 'landmark':{const l=landmarks[id];if(!l)break;dialogueManager.play('ch1_landmark');modal(l.name,`<span class="micro">COMMUNITY EVIDENCE / WARD 17-E</span><div class="dossier-icon">${l.symbol}</div><p class="modal-intro">${l.detail}</p><div class="source-line">${l.source}</div>${button(state.landmarks.includes(id)?'ALREADY VERIFIED ✓':'VERIFY & ADD TO THE MAP','verify-landmark','primary',`data-id="${id}"`)}`);break;}
+ case 'verify-landmark':if(!state.landmarks.includes(id)){state.landmarks.push(id);event(`${landmarks[id].name} verified: a real place restored to the map.`);}$('#modal').close();render();if(state.landmarks.length===3)dialogueManager.play('ch1_done',{force:true});notify(state.landmarks.length===3?'Three landmarks verified. The community layer is taking shape.':'Community evidence added.');break;
+ case 'sensor-correct':state.sensor=true;event('Independent observations confirmed drain backflow linked to Gate Seven.');render();dialogueManager.play('ch2_done',{force:true});notify('Backflow confirmed. Evidence matters more than a reassuring forecast.');break;
+ case 'sensor-wrong':dialogueManager.play('ch2_wrong',{force:true});notify('The gauge is independently cross-checked, and the drain flow is visibly reversed. Compare both observations.',false);break;
+ case 'check':{const c=checks[id];dialogueManager.play('ch3_checks');modal(c[0],`<span class="micro">CALL CONNECTED / QUARRY SCHOOL CARETAKER</span><p class="modal-intro">${c[1]}</p><div class="source-line">SOURCE: CARETAKER + COMMUNITY RESPONSE TEAM</div>${button(state.checks.includes(id)?'CONDITION CONFIRMED ✓':'LOG VERIFIED CONDITION','verify-check','primary',`data-id="${id}"`)}`);break;}
  case 'verify-check':if(!state.checks.includes(id)){state.checks.push(id);event('Quarry shelter verified: '+checks[id][0].toLowerCase()+'.');}$('#modal').close();render();notify('Shelter condition confirmed.');break;
- case 'route-upper':if(state.checks.length<3){notify('Confirm all three shelter conditions before approving the route.',false);break;}state.route='upper';event('The checked upper route was selected, with assistance and staged movement.');render();notify('Evacuation readiness confirmed.');break;
+ case 'route-upper':if(state.checks.length<3){notify('Confirm all three shelter conditions before approving the route.',false);break;}state.route='upper';event('The checked upper route was selected, with assistance and staged movement.');render();dialogueManager.play('ch3_route',{force:true});notify('Evacuation readiness confirmed.');break;
  case 'route-bridge':notify('The bridge approach is submerged. A shorter route is not a verified safe route.',false);break;
- case 'record':{const r=records[id];modal(r.title,`<span class="micro">${r.type} / CASE FILE ${r.n}</span><p class="modal-intro">${r.text}</p><div class="finding"><span>KEY FINDING</span><p>${r.finding}</p></div>${button(state.audit.includes(id)?'EVIDENCE LOGGED ✓':'ADD TO THE EVIDENCE CHAIN','verify-record','primary',`data-id="${id}"`)}`);break;}
+ case 'record':{const r=records[id];dialogueManager.play('ch4_audit');modal(r.title,`<span class="micro">${r.type} / CASE FILE ${r.n}</span><p class="modal-intro">${r.text}</p><div class="finding"><span>KEY FINDING</span><p>${r.finding}</p></div>${button(state.audit.includes(id)?'EVIDENCE LOGGED ✓':'ADD TO THE EVIDENCE CHAIN','verify-record','primary',`data-id="${id}"`)}`);break;}
  case 'verify-record':if(!state.audit.includes(id))state.audit.push(id);$('#modal').close();save();render();notify('Record added to the evidence chain.');break;
- case 'conclusion':if(state.audit.length!==3)break;state.conclusion=true;event('The audit uncovered UNKNOWN → EMPTY. Ward 00’s 8,412 residents entered the verified population layer.');render();notify('WARD 00 RESTORED · 8,412 people now count.');break;
+ case 'conclusion':if(state.audit.length!==3)break;state.conclusion=true;event('The audit uncovered UNKNOWN → EMPTY. Ward 00’s 8,412 residents entered the verified population layer.');render();dialogueManager.play('ch4_done',{force:true});notify('WARD 00 RESTORED · 8,412 people now count.');break;
  case 'conclusion-wrong':notify('Unknown areas need verification. Calling them safe would replace one unsupported assumption with another.',false);break;
- case 'gate-hint':modal('Devika’s field note',`<p class="modal-intro">“Bring Aangan’s share to 25% or below. Each verified basin can accept up to 30%. The spillway takes what remains, with a 30% limit.”</p><p>Try <b>20 / 30 / 30</b>. That leaves 20% for the controlled spillway. Confirm the yard is clear before authorizing.</p><p class="stage-footnote">These percentages are a fictional game abstraction.</p>${button('BACK TO THE PLAN','close')}`);break;
- case 'run-plan':{const p=evaluatePlan(state);if(!p.valid||!p.safe){notify(p.message,false);break;}phase=true;seconds=45;paused=false;inspect='';event(`The revised plan allocated ${state.gates[0]}% east, ${state.gates[1]}% and ${state.gates[2]}% to basins, and ${flow(state.gates).spill}% to the cleared spillway.`);render();focusScene();break;}
+ case 'gate-hint':dialogueManager.play('ch5_plan_hint',{force:true});modal('Devika’s field note',`<p class="modal-intro">“Bring Aangan’s share to 25% or below. Each verified basin can accept up to 30%. The spillway takes what remains, with a 30% limit.”</p><p>Try <b>20 / 30 / 30</b>. That leaves 20% for the controlled spillway. Confirm the yard is clear before authorizing.</p><p class="stage-footnote">These percentages are a fictional game abstraction.</p>${button('BACK TO THE PLAN','close')}`);break;
+ case 'run-plan':{const p=evaluatePlan(state);if(!p.valid||!p.safe){notify(p.message,false);break;}phase=true;seconds=45;paused=false;inspect='';event(`The revised plan allocated ${state.gates[0]}% east, ${state.gates[1]}% and ${state.gates[2]}% to basins, and ${flow(state.gates).spill}% to the cleared spillway.`);render();focusScene();dialogueManager.play('ch5_sensor_fail',{force:true,isMandatory:true});break;}
  case 'field-check':inspect='tuning';radioFrequency=88;render();updateRadio();break;
- case 'lock-radio':if(Math.abs(radioFrequency-96)>1){notify('Tune closer to channel 96 before locking the signal.',false);break;}inspect='field';render();notify('Nilofer and the responder confirm containment. Two independent sources, one verified report.');break;
- case 'hold-plan':if(inspect!=='field')break;state.outcome='held';phase=false;event('When telemetry failed, local observation confirmed the basin was holding. The revised plan continued.');render();focusScene();notify('Human verification keeps the revised plan in place.');break;
- case 'revert-plan':state.outcome='reverted';phase=false;event('After the sensor dropout, the original diversion resumed despite the corrected community layer.');render();focusScene();notify('The response returns to the original model. You can replay this decision.',false);break;
+ case 'lock-radio':if(Math.abs(radioFrequency-96)>1){notify('Tune closer to channel 96 before locking the signal.',false);break;}inspect='field';render();dialogueManager.play('ch5_field_check',{force:true});notify('Nilofer and the responder confirm containment. Two independent sources, one verified report.');break;
+ case 'hold-plan':if(inspect!=='field')break;state.outcome='held';phase=false;event('When telemetry failed, local observation confirmed the basin was holding. The revised plan continued.');render();focusScene();dialogueManager.play('ch5_held',{force:true});notify('Human verification keeps the revised plan in place.');break;
+ case 'revert-plan':state.outcome='reverted';phase=false;event('After the sensor dropout, the original diversion resumed despite the corrected community layer.');render();focusScene();dialogueManager.play('ch5_reverted',{force:true});notify('The response returns to the original model. You can replay this decision.',false);break;
  case 'pause':paused=!paused;render();break;
  case 'retry-gates':state.outcome='';phase=false;inspect='';save();render();focusScene();break;
  case 'improve':if(state.rebuild.includes(id))state.rebuild=state.rebuild.filter(x=>x!==id);else if(state.rebuild.length<3)state.rebuild.push(id);else{notify('Choose three first priorities. Deselect one to change it.',false);break;}save();render();break;
- case 'ending':if(state.rebuild.length!==3)break;endingOpen=true;event('Rebuilding began with '+state.rebuild.map(id=>improvements.find(i=>i[0]===id)[1].toLowerCase()).join(', ')+'.');render();focusScene();break;
+ case 'ending':if(state.rebuild.length!==3)break;endingOpen=true;event('Rebuilding began with '+state.rebuild.map(id=>improvements.find(i=>i[0]===id)[1].toLowerCase()).join(', ')+'.');render();focusScene();if(state.outcome==='held')dialogueManager.play('ch6_ending_held',{force:true});else dialogueManager.play('ch6_ending_reverted',{force:true});break;
  case 'journal':journal();break;
  case 'replay-boot':$('#modal').close();location.reload();break;
- case 'credits':modal('A story about being counted',`<p class="modal-intro"><b>WARD 00 — The Monsoon Protocol</b><br>Adapted from the submitted original story <i>The City That Vanished From The Map</i>, for STORYVERSE / PRAXIS 2026.</p><p>Tara, Rehan, Nilofer, Meera, and Devika’s story connects sustainable cities with clean water, climate preparedness, and reduced inequalities.</p><p>Original environment artwork generated with OpenAI ImageGen. Original map rendering, interactions, and procedural music created for this experience with AI assistance. Barlow Condensed and Manrope fonts: Google Fonts / SIL Open Font License.</p><p class="stage-footnote">Nayantara and the scenario are fictional. Game readings, capacities, and allocations illustrate narrative trade-offs; they are not emergency-management guidance. Story dialogue is captioned. No account or personal data is required.</p><div class="media-credits"><p>Atmospheric rain footage: <a href="https://commons.wikimedia.org/wiki/File:Raindrops_1_2016-05-17.webm" target="_blank" rel="noopener">FASTILY, Raindrops 1</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>. Transcoded to H.264 and displayed beneath an atmospheric overlay. The <a href="assets/rain-window-720.mp4" download>bundled video</a> retains this license.</p><p>Rain texture: <a href="https://commons.wikimedia.org/wiki/File:Monsoon_brings_rain_to_my_window_(7527672284).jpg" target="_blank" rel="noopener">John Fowler</a>, <a href="https://creativecommons.org/licenses/by/2.0/" target="_blank" rel="noopener">CC BY 2.0</a>; displayed cropped beneath a dark overlay. Rain-on-window photo: <a href="https://commons.wikimedia.org/wiki/File:Rain_on_window_(Unsplash).jpg" target="_blank" rel="noopener">Francesco Gallarotti</a>, <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>. These media provide atmosphere; Nayantara is fictional.</p></div>${button('RETURN TO THE STORY','close')}`);break;
+ case 'credits':modal('A story about being counted',`<p class="modal-intro"><b>WARD 00 — The Monsoon Protocol</b><br>Adapted from the submitted original story <i>The City That Vanished From The Map</i>, for STORYVERSE / PRAXIS 2026.</p><p>Tara, Rehan, Nilofer, Meera, and Devika’s story connects sustainable cities with clean water, climate preparedness, and reduced inequalities.</p><p><b>Tara Naik Character Integration:</b> Original stylized 3D mesh with responsive expressions, breathing, blinking, pointer attention, and amplitude-driven mouth movement. A newly generated portrait provides an alternative view and a fallback when 3D is unavailable. Existing bundled dialogue clips are captioned and supported by a browser voice fallback. Mouth motion follows volume, not phoneme-level lip synchronization. The silent opening film is an original rendered city-map sequence.</p><p>Original environment and new Tara portrait artwork generated with ImageGen. The 3D renderer uses Three.js (MIT license). Original map rendering, interactions, and procedural music created for this experience with AI assistance. Barlow Condensed and Manrope fonts: Google Fonts / SIL Open Font License.</p><p class="stage-footnote">Nayantara and the scenario are fictional. Game readings, capacities, and allocations illustrate narrative trade-offs; they are not emergency-management guidance. Story dialogue is captioned. No account or personal data is required.</p><div class="media-credits"><p>Atmospheric rain footage: <a href="https://commons.wikimedia.org/wiki/File:Raindrops_1_2016-05-17.webm" target="_blank" rel="noopener">FASTILY, Raindrops 1</a>, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>. Transcoded to H.264 and displayed beneath an atmospheric overlay. The <a href="assets/rain-window-720.mp4" download>bundled video</a> retains this license.</p><p>Rain texture: <a href="https://commons.wikimedia.org/wiki/File:Monsoon_brings_rain_to_my_window_(7527672284).jpg" target="_blank" rel="noopener">John Fowler</a>, <a href="https://creativecommons.org/licenses/by/2.0/" target="_blank" rel="noopener">CC BY 2.0</a>; displayed cropped beneath a dark overlay. Rain-on-window photo: <a href="https://commons.wikimedia.org/wiki/File:Rain_on_window_(Unsplash).jpg" target="_blank" rel="noopener">Francesco Gallarotti</a>, <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>. These media provide atmosphere; Nayantara is fictional.</p></div>${button('RETURN TO THE STORY','close')}`);break;
 }}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b&&!b.disabled)action(b.dataset.action,b.dataset.id,Number(b.dataset.n));});
-$('#sound').addEventListener('click',async()=>{await music.toggle();updateAudio();if(!music.on&&music.ctx?.state==='suspended')notify('Sound is paused by the browser. Try enabling it again.',false);});
+$('#sound').addEventListener('click',async()=>{await music.toggle();if(!music.on)dialogueManager.silence();else if(dialogueManager.currentLine)dialogueManager.replay();updateAudio();if(!music.on&&music.ctx?.state==='suspended')notify('Sound is paused by the browser. Try enabling it again.',false);});
 document.addEventListener('input',e=>{if(e.target.matches('[data-valve]')){state.gates[Number(e.target.dataset.valve)]=Number(e.target.value);updateGate();}if(e.target.id==='radio-dial'){radioFrequency=Number(e.target.value);updateRadio();}if(e.target.id==='volume')music.setVolume(Number(e.target.value));});
 document.addEventListener('change',e=>{if(e.target.id==='yard-check'){state.yard=e.target.checked;updateGate();}});
 $('#modal').addEventListener('click',e=>{if(e.target===$('#modal'))$('#modal').close();});
-document.addEventListener('visibilitychange',()=>{if(music.on){if(document.hidden)music.ctx.suspend();else music.ctx.resume().catch(()=>{});}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)dialogueManager.silence();if(music.on){if(document.hidden)music.ctx.suspend();else music.ctx.resume().catch(()=>{});}});
 window.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='m'&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)&&!$('#modal').open){$('#sound').click();}});
 render();
 experience.boot();

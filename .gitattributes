@@ -1,0 +1,3 @@
+# Bundled Three.js contains literal GLSL strings with upstream whitespace.
+dist/vendor/* linguist-vendored
+dist/vendor/*.js -whitespace

@@ -6,3 +6,7 @@
 .github
 tests
 *.md
+node_modules
+work
+src
+tools

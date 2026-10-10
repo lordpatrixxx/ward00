@@ -1,0 +1,649 @@
+/* ==========================================================================
+   tara.css — WARD00 The Monsoon Protocol
+   Tara Naik: Layered 2D Character & Frosted Dialogue Presentation
+   ========================================================================== */
+
+/* --- Root & Design Tokens --- */
+:root {
+  --tara-gold: #ffd191;
+  --tara-teal: #77e0d1;
+  --tara-amber: #e7a652;
+  --tara-red: #ffa38e;
+  --tara-dark: #071720;
+  --tara-panel-bg: rgba(10, 28, 36, 0.88);
+  --tara-border: rgba(119, 224, 209, 0.24);
+  --tara-glow: rgba(119, 224, 209, 0.15);
+}
+
+/* --- Tara Main Panel --- */
+.tara-panel {
+  position: relative;
+  background: var(--tara-panel-bg);
+  border: 1px solid var(--tara-border);
+  border-radius: 16px;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 16px 45px rgba(0, 0, 0, 0.4);
+  margin-bottom: 24px;
+  overflow: hidden;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  isolation: isolate;
+}
+
+.tara-panel.collapsed {
+  background: rgba(8, 22, 28, 0.95);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.tara-panel.collapsed .tara-body-wrap {
+  display: none;
+}
+
+/* --- Header Bar --- */
+.tara-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(5, 17, 23, 0.6);
+  border-bottom: 1px solid rgba(158, 219, 229, 0.12);
+}
+
+.tara-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tara-title-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.tara-name {
+  font-family: var(--display);
+  font-size: 15px;
+  letter-spacing: 1.5px;
+  color: var(--tara-gold);
+  line-height: 1.1;
+}
+
+.tara-meta {
+  font-family: monospace;
+  font-size: 8px;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+}
+
+#tara-status-dot.transmitting {
+  background: var(--tara-gold);
+  box-shadow: 0 0 12px var(--tara-gold);
+  animation: dot-pulse 0.9s infinite alternate;
+}
+
+@keyframes dot-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(1.4); opacity: 1; }
+}
+
+.tara-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tara-state-tag {
+  font-family: monospace;
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(119, 224, 209, 0.08);
+  border: 1px solid rgba(119, 224, 209, 0.25);
+  color: var(--tara-teal);
+  text-transform: uppercase;
+}
+
+.tara-panel[data-expression="concerned"] .tara-state-tag {
+  background: rgba(255, 163, 142, 0.1);
+  border-color: rgba(255, 163, 142, 0.35);
+  color: var(--tara-red);
+}
+
+.tara-panel[data-expression="thinking"] .tara-state-tag {
+  background: rgba(255, 209, 145, 0.1);
+  border-color: rgba(255, 209, 145, 0.35);
+  color: var(--tara-gold);
+}
+
+.tara-panel[data-expression="relieved"] .tara-state-tag {
+  background: rgba(119, 224, 209, 0.15);
+  border-color: rgba(119, 224, 209, 0.45);
+  color: #a3edce;
+}
+
+.tara-collapse-btn {
+  background: rgba(16, 40, 50, 0.6);
+  border: 1px solid rgba(158, 219, 229, 0.2);
+  color: #c5d8dc;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.tara-collapse-btn:hover {
+  border-color: var(--tara-gold);
+  color: var(--tara-gold);
+  background: rgba(25, 55, 68, 0.8);
+}
+
+/* --- Body Layout (Portrait Stage + Dialogue Card) --- */
+.tara-body-wrap {
+  display: grid;
+  grid-template-columns: minmax(130px, 160px) 1fr;
+  gap: 16px;
+  padding: 16px;
+  align-items: stretch;
+}
+
+/* --- Portrait Stage --- */
+.tara-portrait-stage {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(119, 224, 209, 0.3);
+  background: radial-gradient(circle at 50% 30%, #153440, #04121a);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.tara-back-atmosphere {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tara-radar-sweep {
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(from 0deg, transparent 270deg, rgba(119, 224, 209, 0.12) 360deg);
+  animation: tara-radar 6s linear infinite;
+}
+
+@keyframes tara-radar {
+  to { transform: rotate(360deg); }
+}
+
+.tara-rain-mist {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(170deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 18px);
+  opacity: 0.7;
+}
+
+/* --- Portrait Layers & Animations --- */
+.tara-portrait-layers {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  animation: tara-breath 4.4s ease-in-out infinite alternate;
+  transform-origin: center bottom;
+}
+
+@keyframes tara-breath {
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-1.5px) scale(1.008); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.tara-layer {
+  position: absolute;
+  inset: 0;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.4s ease-in-out, transform 0.4s ease-out;
+  transform: scale(1);
+  pointer-events: none;
+}
+
+.tara-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tara-layer.active {
+  opacity: 1;
+}
+
+.tara-layer-speaking {
+  opacity: 0;
+  mix-blend-mode: normal;
+  transition: opacity 0.08s ease-out;
+}
+
+/* --- Eye Blink Overlay --- */
+.tara-eyelid-overlay {
+  position: absolute;
+  left: 36%;
+  top: 21%;
+  width: 29%;
+  height: 7%;
+  pointer-events: none;
+  z-index: 5;
+  opacity: 0;
+  border-radius: 50%;
+  background: #734a36;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.05s ease-in-out;
+}
+
+.tara-eyelid-overlay.blink {
+  opacity: 0.95;
+}
+
+/* --- Viseme Mouth Overlay --- */
+.tara-viseme-overlay {
+  position: absolute;
+  left: 41%;
+  top: 31%;
+  width: 18%;
+  height: 9%;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.tara-panel.speaking .tara-viseme-overlay {
+  opacity: 1;
+}
+
+.tara-mouth-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* --- Radio Transmitter LED --- */
+.tara-radio-node {
+  position: absolute;
+  right: 18%;
+  bottom: 28%;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(5, 18, 25, 0.85);
+  border: 1px solid rgba(119, 224, 209, 0.3);
+  border-radius: 4px;
+  padding: 2px 5px;
+  z-index: 7;
+}
+
+.radio-beacon {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.tara-radio-node.transmitting .radio-beacon {
+  background: var(--tara-gold);
+  box-shadow: 0 0 10px var(--tara-gold);
+  animation: radio-flash 0.6s infinite alternate;
+}
+
+@keyframes radio-flash {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+.radio-tag {
+  font-family: monospace;
+  font-size: 6px;
+  color: var(--tara-teal);
+  letter-spacing: 0.5px;
+}
+
+/* --- Frosted Dialogue Slot & Card --- */
+.tara-dialogue-slot {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.tara-dialogue-card {
+  position: relative;
+  background: linear-gradient(135deg, rgba(16, 42, 50, 0.75), rgba(7, 23, 31, 0.85));
+  border: 1px solid rgba(119, 224, 209, 0.22);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.tara-dialogue-card.speaking {
+  border-color: rgba(255, 209, 145, 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 10px 30px rgba(255, 209, 145, 0.12);
+}
+
+.dialogue-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(158, 219, 229, 0.12);
+  padding-bottom: 7px;
+}
+
+.speaker-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.speaker-name {
+  font-family: var(--display);
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--tara-gold);
+}
+
+.speaker-tag {
+  font-family: monospace;
+  font-size: 8px;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+}
+
+/* --- Dialogue Waveform Visualizer --- */
+.dialogue-waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+}
+
+.dialogue-waveform i {
+  display: block;
+  width: 2px;
+  height: 3px;
+  background: rgba(119, 224, 209, 0.4);
+  border-radius: 1px;
+  transition: height 0.15s;
+}
+
+.dialogue-waveform.active i {
+  background: var(--tara-gold);
+  animation: waveform-pulse 0.7s infinite alternate ease-in-out;
+}
+
+.dialogue-waveform.active i:nth-child(1) { animation-delay: 0.1s; }
+.dialogue-waveform.active i:nth-child(2) { animation-delay: 0.3s; }
+.dialogue-waveform.active i:nth-child(3) { animation-delay: 0.5s; }
+.dialogue-waveform.active i:nth-child(4) { animation-delay: 0.2s; }
+.dialogue-waveform.active i:nth-child(5) { animation-delay: 0.4s; }
+.dialogue-waveform.active i:nth-child(6) { animation-delay: 0.15s; }
+.dialogue-waveform.active i:nth-child(7) { animation-delay: 0.35s; }
+
+@keyframes waveform-pulse {
+  0% { height: 3px; }
+  50% { height: 15px; }
+  100% { height: 5px; }
+}
+
+/* --- Captions Typography --- */
+.dialogue-caption {
+  font-family: var(--body);
+  font-size: 12px;
+  line-height: 1.7;
+  color: #e5f0ec;
+  margin: 0;
+  min-height: 40px;
+}
+
+/* --- Dialogue Actions Bar --- */
+.dialogue-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(158, 219, 229, 0.1);
+}
+
+.dlg-btn {
+  background: rgba(13, 33, 41, 0.7);
+  border: 1px solid rgba(119, 224, 209, 0.25);
+  color: #c7d9dc;
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-family: monospace;
+  font-size: 8px;
+  letter-spacing: 0.8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dlg-btn:hover {
+  border-color: var(--tara-gold);
+  color: var(--tara-gold);
+  background: rgba(25, 55, 68, 0.85);
+  transform: translateY(-1px);
+}
+
+.dlg-btn.muted {
+  border-color: rgba(255, 163, 142, 0.4);
+  color: var(--tara-red);
+}
+
+/* --- Intro Modal Showcase --- */
+.intro-tara-preview {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 18px;
+  background: rgba(6, 25, 30, 0.7);
+  border: 1px solid rgba(119, 224, 209, 0.3);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 20px 0;
+  align-items: center;
+}
+
+.intro-tara-img {
+  width: 100px;
+  height: 100px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid var(--tara-gold);
+  box-shadow: 0 0 20px rgba(255, 209, 145, 0.2);
+}
+
+.intro-tara-quote {
+  text-align: left;
+}
+
+.intro-tara-quote .micro {
+  color: var(--tara-teal);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.intro-tara-quote blockquote {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #edf5f0;
+  margin: 0;
+  font-style: italic;
+  border-left: 2px solid var(--tara-gold);
+  padding-left: 10px;
+}
+
+/* --- Floating Tara Companion Toggle Button (Mobile & Quick Access) --- */
+.tara-floating-trigger {
+  position: fixed;
+  bottom: 96px;
+  right: 20px;
+  z-index: 50;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: rgba(8, 26, 34, 0.94);
+  border: 1px solid var(--tara-teal);
+  border-radius: 30px;
+  padding: 7px 14px 7px 8px;
+  color: var(--tara-gold);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(119, 224, 209, 0.2);
+  cursor: pointer;
+  backdrop-filter: blur(14px);
+  font-family: var(--display);
+  font-size: 12px;
+  letter-spacing: 1px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.tara-floating-trigger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 22px rgba(119, 224, 209, 0.4);
+}
+
+.tara-floating-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--tara-gold);
+}
+
+/* --- Settings Modal Voice Controls --- */
+.voice-engine-select, .voice-select {
+  background: #081a24;
+  border: 1px solid rgba(119, 224, 209, 0.3);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  max-width: 220px;
+}
+
+/* --- Responsive Layout Adjustments --- */
+@media (max-width: 1150px) {
+  .tara-body-wrap {
+    grid-template-columns: 120px 1fr;
+    gap: 12px;
+    padding: 12px;
+  }
+  .dialogue-caption {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 800px) {
+  .tara-panel {
+    margin-bottom: 18px;
+  }
+  .tara-body-wrap {
+    grid-template-columns: 100px 1fr;
+    gap: 12px;
+    padding: 12px;
+  }
+  .tara-floating-trigger {
+    display: flex;
+  }
+}
+
+@media (max-width: 480px) {
+  .tara-body-wrap {
+    grid-template-columns: 80px 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+  .tara-name {
+    font-size: 13px;
+  }
+  .tara-meta {
+    font-size: 7px;
+  }
+  .dialogue-caption {
+    font-size: 10px;
+    line-height: 1.6;
+    min-height: 36px;
+  }
+  .dlg-btn {
+    padding: 4px 7px;
+    font-size: 7px;
+  }
+  .intro-tara-preview {
+    grid-template-columns: 75px 1fr;
+    gap: 12px;
+    padding: 10px;
+  }
+  .intro-tara-img {
+    width: 75px;
+    height: 75px;
+  }
+}
+
+/* --- Reduced Motion Mode --- */
+.reduced .tara-portrait-layers,
+.reduced .tara-radar-sweep,
+.reduced .dialogue-waveform.active i,
+.reduced #tara-status-dot.transmitting {
+  animation: none !important;
+  transform: none !important;
+}
+
+.reduced .tara-layer,
+.reduced .tara-dialogue-card,
+.reduced .tara-panel {
+  transition: none !important;
+}
+
+/* Live 3D Tara and portrait fallback. The renderer survives chapter re-renders. */
+.tara-portrait-stage{aspect-ratio:auto;height:270px;margin:0;background:radial-gradient(ellipse at 50% 40%,#20444a,#081b25 78%);border-radius:0;overflow:hidden}
+.tara-avatar-host,.tara-avatar-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:3;display:block}
+.tara-portrait-fallback{position:absolute;height:116%;width:100%;left:0;top:1%;object-fit:contain;object-position:center top;z-index:2;transition:opacity .4s}
+.tara-portrait-stage:has(.has-avatar):not(.portrait-mode) .tara-portrait-fallback{opacity:0}
+.portrait-mode .tara-avatar-host{visibility:hidden}
+.tara-connection-label{position:absolute;bottom:13px;left:12px;z-index:4;font:8px monospace;letter-spacing:1px;color:#93e1cf;text-shadow:0 1px 4px #000}
+.tara-view-toggle{position:absolute;right:8px;top:10px;z-index:4;font:8px monospace;letter-spacing:.7px;padding:7px;border:1px solid #a4d6cc40;border-radius:5px;background:#061820bd;color:#b2d5cd}
+.tara-view-toggle:hover{background:#24444c}.tara-view-toggle:disabled{display:none}
+.tara-body-wrap{padding:0!important}.tara-header-bar{padding:11px 12px}.tara-bar-actions{gap:7px}.tara-state-tag{padding:3px 5px;font-size:7px}.tara-meta{font-size:7px}
+.tara-idle-caption{padding:10px 14px;color:#c1d8d3;font-size:12px;line-height:1.6}
+.tara-dialogue-slot{position:relative;z-index:4}.tara-dialogue-card{margin:0;border-radius:0;border-width:1px 0 0;padding:14px}
+.tara-panel{margin-bottom:20px}.tara-panel .dialogue-caption{font-size:12px;line-height:1.6}.dialogue-actions-bar{gap:6px;flex-wrap:wrap}
+.tara-panel.speaking .tara-connection-label{color:#ffd191}.intro-tara-img{object-fit:contain!important;background:radial-gradient(ellipse,#23424b,#0a2029);object-position:center top}
+.story-column{position:relative;top:auto}.story-column>blockquote{font-size:13px}.story-column h1{font-size:clamp(36px,3.2vw,52px)}
+@media(min-width:801px){.tara-panel{margin-inline:-8px}.tara-portrait-stage{height:250px}}
+@media(max-width:800px) and (min-width:501px){.tara-body-wrap{display:grid;grid-template-columns:210px 1fr}.tara-portrait-stage{height:240px}.tara-dialogue-slot{align-self:center}.tara-dialogue-card{border:0}}
+@media(max-width:500px){.tara-portrait-stage{height:260px}.tara-panel .dialogue-caption{font-size:12px}}
+
+/* Silent, skippable cinematic video. Titles remain crisp HTML. */
+.boot-film{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.95}
+#boot::after{content:'';position:absolute;inset:0;background:linear-gradient(0deg,#030b12 2%,transparent 40%,#030b1244);pointer-events:none}
+#boot .boot-content{position:absolute;z-index:2;bottom:10%;width:min(760px,90%)}
+#boot .boot-caption{font-size:8px;letter-spacing:2px;color:#a5d3d0}
+#boot .boot-orbit{display:none}#boot .boot-content h2{font-size:clamp(24px,4vw,44px);letter-spacing:7px;margin:15px 0 8px;text-shadow:0 2px 24px #000}
+#boot .boot-status{font-size:11px;margin:8px}#boot .boot-track{margin:14px auto;height:2px}
+#boot .boot-track i{transition:width .2s linear}#boot .boot-skip,#boot .boot-coordinate{z-index:3}
+@media(max-width:600px){#boot .boot-content{bottom:21%}#boot .boot-film{object-fit:contain;object-position:center 22%}#boot .boot-content h2{letter-spacing:3px}#boot .boot-caption{line-height:1.8}}
+.tara-body-wrap{display:block;grid-template-columns:none}
+@media(max-width:800px) and (min-width:501px){.tara-body-wrap{display:grid;grid-template-columns:210px minmax(0,1fr)}}
+.field-notes{border-top:1px solid #a4c4c728;padding:12px 0;color:#c6ded6;margin:0 0 12px}
+.field-notes summary{cursor:pointer;list-style:none;font:9px monospace;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center}
+.field-notes summary::-webkit-details-marker{display:none}.field-notes[open] summary span{rotate:45deg}.field-notes summary span{font-size:16px}
+.field-notes .radio-card{margin-top:15px}.story-column .mission-objective{padding-top:12px}.story-column .mission-objective p{margin-bottom:15px}

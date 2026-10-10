@@ -8,9 +8,11 @@
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=4">
   <link rel="stylesheet" href="control-room.css?v=4">
+  <link rel="stylesheet" href="tara.css?v=6">
 </head>
 <body>
   <dialog id="boot" aria-label="WARD 00 opening sequence">
+    <video class="boot-film" muted playsinline preload="none" poster="assets/boot/poster.webp" aria-hidden="true"></video>
     <div class="boot-content"><span class="boot-caption">NAYANTARA / MONSOON EMERGENCY NETWORK</span><div class="boot-orbit"><b>W<span>00</span></b></div><h2>THE MONSOON PROTOCOL</h2><p class="boot-status" role="status">Opening the city network</p><div class="boot-track" aria-hidden="true"><i></i></div></div>
     <span class="boot-coordinate">04:17 AM · 8,412 PEOPLE · ONE MISSING WARD</span><button class="boot-skip" autofocus>SKIP INTRO ↗</button>
   </dialog>
@@ -23,9 +25,13 @@
     <div class="tools"><button class="icon-button" id="sound" aria-label="Enable sound" aria-pressed="false"><span class="sound-bars"><i></i><i></i><i></i><i></i></span><span id="sound-label">SOUND OFF</span></button><button class="icon-button" data-action="settings" aria-label="Open settings">⚙ <span>SETTINGS</span></button><button class="icon-button" data-action="chapters" aria-label="Open chapter menu">☰ <span>CHAPTERS</span></button></div>
   </header>
   <main id="main" tabindex="-1"></main>
+  <button class="tara-floating-trigger" id="tara-floating-trigger" data-action="toggle-tara" aria-label="Talk with Tara" title="Toggle Tara panel">
+    <img src="assets/tara/tara-3d-portrait.png" alt="" class="tara-floating-thumb" aria-hidden="true">
+    <span>TARA</span>
+  </button>
   <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
   <div id="toast" role="status"></div>
   <dialog id="modal" aria-labelledby="modal-title"></dialog>
-  <script type="module" src="app.js?v=4"></script>
+  <script type="module" src="app.js?v=6"></script>
 </body>
 </html>

@@ -20,13 +20,16 @@ export class Experience {
  get reduced(){return document.body.classList.contains('reduced')||matchMedia('(prefers-reduced-motion: reduce)').matches;}
  boot(){
   const d=document.querySelector('#boot');if(!d)return;
-  const main=document.querySelector('#main'),steps=['Opening the city network','Reading the monsoon warning','Aangan: location not found','Your city is waiting.'];
+  const main=document.querySelector('#main'),video=d.querySelector('.boot-film'),steps=['Opening the city network','Reading the monsoon warning','Aangan: location not found','8,412 people. We are here.'];
   let closed=false;const timers=[];
-  const finish=()=>{if(closed)return;closed=true;timers.forEach(clearTimeout);d.close();document.body.classList.remove('booting');main.focus({preventScroll:true});d.remove();};
+  const finish=()=>{if(closed)return;closed=true;timers.forEach(clearTimeout);video?.pause();video?.removeAttribute('src');video?.load();d.close();document.body.classList.remove('booting');main.focus({preventScroll:true});d.remove();};
   document.body.classList.add('booting');d.showModal();d.querySelector('button').onclick=finish;d.addEventListener('cancel',e=>{e.preventDefault();finish();});
   if(this.reduced){finish();return;}
-  steps.forEach((s,i)=>timers.push(setTimeout(()=>{d.querySelector('.boot-status').textContent=s;d.dataset.step=i;d.querySelector('.boot-track i').style.width=((i+1)*25)+'%';},i*780)));
-  timers.push(setTimeout(finish,3400));
+  const progress=t=>{const i=Math.min(3,Math.floor(t/2));d.querySelector('.boot-status').textContent=steps[i];d.dataset.step=i;d.querySelector('.boot-track i').style.width=Math.min(100,t/8*100)+'%';};
+  const fallback=()=>{if(closed)return;steps.forEach((s,i)=>timers.push(setTimeout(()=>progress(i*2),i*600)));timers.push(setTimeout(finish,2800));};
+  if(video){video.muted=true;video.src='assets/boot/ward00-boot.mp4';video.addEventListener('timeupdate',()=>progress(video.currentTime));video.addEventListener('ended',finish,{once:true});video.addEventListener('error',fallback,{once:true});video.play().catch(fallback);}else fallback();
+  // A stalled network must never trap the player in the opening sequence.
+  timers.push(setTimeout(finish,11000));
  }
  enter(chapter){
   if(this.reduced)return;
