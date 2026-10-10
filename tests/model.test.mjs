@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {INITIAL,ready,evaluatePlan,flow,safeLoad,demoState} from '../dist/model.mjs';
+test('a new story cannot skip any evidence gate',()=>{const s=INITIAL();for(let n=1;n<=6;n++)assert.equal(ready(s,n),false);});
+test('community landmarks, shelter checks, and audit each require all evidence',()=>{const s=demoState(5);for(const [field,value,chapter] of [['landmarks','school',1],['checks','access',3],['audit','test',4]]){const t=structuredClone(s);t[field]=t[field].filter(x=>x!==value);assert.equal(ready(t,chapter),false);}s.route='bridge';assert.equal(ready(s,3),false);});
+test('balanced flow succeeds only with verified yard and community prerequisites',()=>{const s=demoState(5);assert.equal(evaluatePlan(s).safe,true);s.yard=false;assert.equal(evaluatePlan(s).valid,false);s.yard=true;s.checks=[];assert.equal(evaluatePlan(s).valid,false);});
+test('neither excessive diversion nor impossible totals can pass',()=>{const s=demoState(5);s.gates=[70,10,10];assert.equal(evaluatePlan(s).safe,false);s.gates=[70,30,30];assert.equal(evaluatePlan(s).valid,false);s.gates=[0,10,10];assert.equal(evaluatePlan(s).safe,false);});
+test('all accepted valve combinations conserve flow and respect game capacities',()=>{const s=demoState(5);let accepted=0;for(let e=0;e<=70;e+=5)for(let a=0;a<=30;a+=5)for(let b=0;b<=30;b+=5){s.gates=[e,a,b];const p=evaluatePlan(s);if(p.safe){accepted++;const f=flow(s.gates);assert.equal(f.east+f.b1+f.b2+f.spill,100);assert.ok(f.east<=25&&f.b1<=30&&f.b2<=30&&f.spill>=0&&f.spill<=30);}}assert.ok(accepted>0);});
+test('malformed saved progress is repaired',()=>{assert.deepEqual(safeLoad('bad'),INITIAL());const s=safeLoad(JSON.stringify({version:1,chapter:99,landmarks:null,gates:[1000]}));assert.equal(s.chapter,6);assert.deepEqual(s.landmarks,[]);assert.deepEqual(s.gates,[70,10,10]);});
+test('each prepared checkpoint starts at its intended unsolved interaction',()=>{for(let n=1;n<=6;n++){const s=demoState(n);assert.equal(s.chapter,n);assert.equal(ready(s,n),false);}assert.equal(evaluatePlan(demoState(5)).safe,true);});

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#091619">
+  <meta name="description" content="8,412 people. Missing from the map. Enter WARD 00, a cinematic narrative game about the city that learned to listen.">
+  <title>WARD 00 — The Monsoon Protocol</title>
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="control-room.css?v=4">
+</head>
+<body>
+  <dialog id="boot" aria-label="WARD 00 opening sequence">
+    <div class="boot-content"><span class="boot-caption">NAYANTARA / MONSOON EMERGENCY NETWORK</span><div class="boot-orbit"><b>W<span>00</span></b></div><h2>THE MONSOON PROTOCOL</h2><p class="boot-status" role="status">Opening the city network</p><div class="boot-track" aria-hidden="true"><i></i></div></div>
+    <span class="boot-coordinate">04:17 AM · 8,412 PEOPLE · ONE MISSING WARD</span><button class="boot-skip" autofocus>SKIP INTRO ↗</button>
+  </dialog>
+  <a class="skip" href="#main">Skip to experience</a>
+  <canvas id="rain" aria-hidden="true"></canvas>
+  <div class="grain" aria-hidden="true"></div>
+  <header class="topbar">
+    <button class="brand" data-action="home" aria-label="WARD 00 home"><span class="brand-symbol">W<span>00</span></span><span>WARD <b>00</b><small>THE MONSOON PROTOCOL</small></span></button>
+    <div class="top-location"><span class="live-dot"></span> NAYANTARA, INDIA <span class="separator">/</span> <span id="clock">04:17 AM</span></div>
+    <div class="tools"><button class="icon-button" id="sound" aria-label="Enable sound" aria-pressed="false"><span class="sound-bars"><i></i><i></i><i></i><i></i></span><span id="sound-label">SOUND OFF</span></button><button class="icon-button" data-action="settings" aria-label="Open settings">⚙ <span>SETTINGS</span></button><button class="icon-button" data-action="chapters" aria-label="Open chapter menu">☰ <span>CHAPTERS</span></button></div>
+  </header>
+  <main id="main" tabindex="-1"></main>
+  <div id="announcer" class="sr-only" role="status" aria-live="polite"></div>
+  <div id="toast" role="status"></div>
+  <dialog id="modal" aria-labelledby="modal-title"></dialog>
+  <script type="module" src="app.js?v=4"></script>
+</body>
+</html>

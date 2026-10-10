@@ -1,0 +1,12 @@
+.vercel/
+.openai/
+.sites-runtime/
+.env
+.env.*
+!.env.example
+node_modules/
+*.log
+*.zip
+*.tar.gz
+.DS_Store
+Thumbs.db
